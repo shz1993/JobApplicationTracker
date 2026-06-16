@@ -25,8 +25,8 @@ Helps job seekers manage their job search by storing applications, comparing CV 
 ## How to Run Locally
 1. Clone repo: `git clone https://github.com/shz1993/JobApplicationTracker.git`
 2. Install: `pip install -r requirements.txt`
-3. Create `.streamlit/secrets.toml`:
+3.Copy table from Neondb into your local database
+4. Create `.streamlit/secrets.toml`:
 ```toml
 DB_CONNECTION = "postgresql://..."
 GROQ_API_KEY = "gsk_..."
-4. Copy table from Neondb into your local database

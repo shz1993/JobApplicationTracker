@@ -229,7 +229,7 @@ with tab2:
                             for t in match_result['tips']:
                                 st.write(f"→ {t}")
 
-# ==================== TAB 3: AI MATCH & INTERVIEW PREP ====================
+# ==================== TAB 3: AI MATCH & INTERVIEW PREP (DIPERBAIKI) ====================
 with tab3:
     st.header("🎯 AI Match Analysis & Interview Preparation")
     
@@ -264,23 +264,47 @@ with tab3:
                 with col2:
                     st.subheader("💡 Tips Perbaikan CV")
                     
-                    # Hitung ulang match untuk dapat tips
-                    if st.button("🔄 Refresh Analisis & Tips", use_container_width=True):
-                        with st.spinner("AI sedang menganalisis ulang..."):
-                            new_match = calculate_match_score(
-                                resume_text=st.session_state.resume_data['text'],
-                                job_description=job_detail['job_description'],
-                                job_role=job_detail['role']
-                            )
-                        if new_match.get('tips'):
-                            for tip in new_match['tips']:
-                                st.write(f"✓ {tip}")
-                        if new_match.get('weaknesses'):
-                            st.write("\n**Area yang perlu ditingkatkan:**")
-                            for w in new_match['weaknesses']:
-                                st.write(f"⚠️ {w}")
+                    # Tampilkan feedback yang sudah ada
+                    if job_detail.get('match_feedback'):
+                        with st.expander("📊 Feedback dari Match Score"):
+                            st.write(job_detail['match_feedback'])
+                    
+                    # Tombol untuk refresh analisis
+                    if st.button("🔄 Dapatkan Tips Perbaikan CV", use_container_width=True):
+                        with st.spinner("AI sedang menganalisis ulang CV Anda..."):
+                            try:
+                                new_match = calculate_match_score(
+                                    resume_text=st.session_state.resume_data['text'],
+                                    job_description=job_detail['job_description'],
+                                    job_role=job_detail['role']
+                                )
+                                
+                                if new_match:
+                                    st.success("✅ Analisis selesai!")
+                                    
+                                    # Tampilkan tips
+                                    if new_match.get('tips'):
+                                        st.markdown("**💡 Tips Perbaikan CV:**")
+                                        for tip in new_match['tips']:
+                                            st.markdown(f"✓ {tip}")
+                                    
+                                    # Tampilkan strengths
+                                    if new_match.get('strengths'):
+                                        st.markdown("**✅ Kelebihan CV Anda:**")
+                                        for s in new_match['strengths']:
+                                            st.markdown(f"• {s}")
+                                    
+                                    # Tampilkan weaknesses
+                                    if new_match.get('weaknesses'):
+                                        st.markdown("**⚠️ Area yang Perlu Ditingkatkan:**")
+                                        for w in new_match['weaknesses']:
+                                            st.markdown(f"• {w}")
+                                else:
+                                    st.warning("Tips tidak tersedia. Silakan coba lagi.")
+                            except Exception as e:
+                                st.error(f"Error: {str(e)[:100]}")
                     else:
-                        st.write("Klik tombol di atas untuk mendapatkan tips dari AI")
+                        st.info("👆 Klik tombol di atas untuk mendapatkan tips perbaikan CV dari AI")
                 
                 # Interview preparation section
                 st.markdown("---")

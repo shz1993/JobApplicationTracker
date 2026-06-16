@@ -32,7 +32,7 @@ def extract_resume_data(resume_text: str) -> dict:
     {{
         "name": "Nama lengkap orang ini",
         "email": "Alamat email yang terdeteksi",
-        "skills": ["skill1", "skill2", "skill3", "..."]
+        "skills": ["skill1", "skill2", "skill3"]
     }}
     
     Untuk skills: ambil semua skill teknis dan soft skill yang relevan.
@@ -40,13 +40,12 @@ def extract_resume_data(resume_text: str) -> dict:
     
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",,
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "Kamu adalah HR AI profesional. Output hanya JSON valid."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
-            response_format={"type": "json_object"}
+            temperature=0.1
         )
         
         result = json.loads(response.choices[0].message.content)
@@ -65,7 +64,7 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
         job_role: Nama role/posisi
         
     Returns:
-        Dictionary: {"score": 0-100, "feedback": "...", "strengths": [...], "weaknesses": [...]}
+        Dictionary: {"score": 0-100, "feedback": "...", "strengths": [...], "weaknesses": [...], "tips": [...]}
     """
     client = get_groq_client()
     
@@ -74,20 +73,21 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
     
     POSISI: {job_role}
     
-    CV:
-    {resume_text[:2500]}
+    CV TEXT:
+    {resume_text[:3000]}
     
-    DESKRIPSI PEKERJAAN:
-    {job_description[:2500]}
+    JOB DESCRIPTION:
+    {job_description[:3000]}
     
-    Berikan output dalam format JSON:
-    {{
-        "score": (angka 0-100, berapa persen cocok),
-        "feedback": "Paragraf singkat menjelaskan hasil analisis",
+    Berikan output dalam format JSON. Jangan tambahkan teks lain di luar JSON.
+    
+    {
+        "score": 85,
+        "feedback": "Paragraf singkat tentang hasil analisis",
         "strengths": ["kelebihan 1", "kelebihan 2", "kelebihan 3"],
         "weaknesses": ["kekurangan 1", "kekurangan 2"],
         "tips": ["tips perbaikan 1", "tips perbaikan 2"]
-    }}
+    }
     
     Hitung score berdasarkan:
     - Kesesuaian skills (60%)
@@ -97,7 +97,7 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
     
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",,
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "Kamu adalah HR AI. Output hanya JSON valid, tanpa teks lain."},
                 {"role": "user", "content": prompt}
@@ -122,7 +122,7 @@ def generate_interview_questions(job_description: str, job_role: str, company: s
     Generate kemungkinan pertanyaan interview berdasarkan job description
     
     Returns:
-        List berisi 5 pertanyaan
+        List berisi 5-7 pertanyaan
     """
     client = get_groq_client()
     
@@ -131,10 +131,11 @@ def generate_interview_questions(job_description: str, job_role: str, company: s
     
     PERUSAHAAN: {company}
     POSISI: {job_role}
-    DESKRIPSI PEKERJAAN:
-    {job_description[:2000]}
     
-    Output hanya list JSON: ["pertanyaan 1", "pertanyaan 2", ...]
+    DESKRIPSI PEKERJAAN:
+    {job_description[:2500]}
+    
+    Output hanya list JSON, contoh: ["pertanyaan 1", "pertanyaan 2", ...]
     """
     
     try:

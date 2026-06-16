@@ -40,7 +40,7 @@ def extract_resume_data(resume_text: str) -> dict:
     
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",,
             messages=[
                 {"role": "system", "content": "Kamu adalah HR AI profesional. Output hanya JSON valid."},
                 {"role": "user", "content": prompt}
@@ -97,7 +97,7 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
     
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",,
             messages=[
                 {"role": "system", "content": "Kamu adalah HR AI. Output hanya JSON valid, tanpa teks lain."},
                 {"role": "user", "content": prompt}
@@ -139,7 +139,7 @@ def generate_interview_questions(job_description: str, job_role: str, company: s
     
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
         )

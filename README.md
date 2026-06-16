@@ -29,5 +29,4 @@ Helps job seekers manage their job search by storing applications, comparing CV 
 ```toml
 DB_CONNECTION = "postgresql://..."
 GROQ_API_KEY = "gsk_..."
-
 4. Copy table from Neondb into your local database

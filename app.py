@@ -302,6 +302,7 @@ with tab3:
                                        key=f"answer_{i}")
 
 # ==================== TAB 4: RIWAYAT LAMARAN ====================
+# ==================== TAB 4: RIWAYAT LAMARAN (DIPERBAIKI) ====================
 with tab4:
     st.header("📝 Riwayat Lamaran")
     
@@ -310,6 +311,7 @@ with tab4:
     if not jobs:
         st.info("Belum ada lamaran yang disimpan. Mulai tambahkan lamaran di tab 'Log Lamaran'!")
     else:
+        # Tampilkan dalam tabel
         df = pd.DataFrame(jobs)
         df['applied_date'] = pd.to_datetime(df['applied_date']).dt.date
         df.columns = ['ID', 'Perusahaan', 'Posisi', 'Status', 'Match Score', 'Tanggal Lamar', 'Deadline']
@@ -328,17 +330,30 @@ with tab4:
         st.markdown("---")
         st.subheader("✏️ Update Status Lamaran")
         
+        # Gunakan session state untuk menyimpan pilihan
+        if 'selected_job_index' not in st.session_state:
+            st.session_state.selected_job_index = 0
+        if 'update_triggered' not in st.session_state:
+            st.session_state.update_triggered = False
+        
         col1, col2 = st.columns(2)
+        
         with col1:
-            job_to_update = st.selectbox("Pilih lamaran:", 
-                                        options=[f"{j['company']} - {j['role']}" for j in jobs],
-                                        key="update_select")
-            selected_job = next(j for j in jobs if f"{j['company']} - {j['role']}" == job_to_update)
+            job_options = [f"{j['company']} - {j['role']}" for j in jobs]
+            selected_job_label = st.selectbox(
+                "Pilih lamaran:", 
+                options=job_options,
+                key="job_select",
+                index=st.session_state.selected_job_index
+            )
+            selected_job = next(j for j in jobs if f"{j['company']} - {j['role']}" == selected_job_label)
         
         with col2:
-            new_status = st.selectbox("Status baru:", 
-                                     ['applied', 'interview', 'technical_test', 'rejected', 'offer'],
-                                     key="status_select")
+            new_status = st.selectbox(
+                "Status baru:", 
+                ['applied', 'interview', 'technical_test', 'rejected', 'offer'],
+                key="status_select"
+            )
             status_display = {
                 'applied': '📤 Applied',
                 'interview': '📞 Interview',
@@ -348,11 +363,24 @@ with tab4:
             }
             st.write(f"Menjadi: **{status_display[new_status]}**")
         
-        if st.button("✅ Update Status", use_container_width=True):
+        # Tombol update dengan callback yang benar
+        if st.button("✅ Update Status", key="update_status_btn", use_container_width=True):
+            # Simpan index yang dipilih
+            st.session_state.selected_job_index = job_options.index(selected_job_label)
+            
+            # Lakukan update
             update_job_status(selected_job['id'], new_status)
-            st.success("Status berhasil diupdate!")
+            st.success(f"✅ Status lamaran **{selected_job_label}** berhasil diupdate menjadi **{status_display[new_status]}**!")
+            
+            # Trigger rerun setelah delay kecil
+            st.session_state.update_triggered = True
+        
+        # Handle rerun setelah update
+        if st.session_state.update_triggered:
+            st.session_state.update_triggered = False
             st.rerun()
         
+        # Export option
         st.markdown("---")
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(

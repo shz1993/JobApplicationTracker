@@ -7,7 +7,6 @@ from psycopg2.extras import RealDictCursor
 def get_connection():
     """Mendapatkan koneksi ke Neon database"""
     try:
-        # Ambil connection string dari secrets
         conn_string = st.secrets["DB_CONNECTION"]
         conn = psycopg2.connect(conn_string)
         return conn
@@ -28,7 +27,7 @@ def init_db():
             extracted_text TEXT,
             name TEXT,
             email TEXT,
-            skills TEXT,
+            skills TEXT[],
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -59,11 +58,19 @@ def save_resume(file_name, extracted_text, name, email, skills):
     conn = get_connection()
     cur = conn.cursor()
     
+    # Ubah skills dari list Python ke format array PostgreSQL
+    if skills and isinstance(skills, list):
+        # Escape quotes di dalam skill
+        escaped_skills = [s.replace('"', '\\"') for s in skills]
+        pg_array = '{' + ','.join([f'"{s}"' for s in escaped_skills]) + '}'
+    else:
+        pg_array = '{}'
+    
     cur.execute("""
         INSERT INTO resumes (file_name, extracted_text, name, email, skills)
-        VALUES (%s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s::TEXT[])
         RETURNING id
-    """, (file_name, extracted_text, name, email, json.dumps(skills)))
+    """, (file_name, extracted_text, name, email, pg_array))
     
     resume_id = cur.fetchone()[0]
     conn.commit()
@@ -89,10 +96,14 @@ def get_latest_resume():
     conn.close()
     
     if result:
-        try:
-            skills = json.loads(result['skills']) if result['skills'] else []
-        except:
+        # Konversi dari PostgreSQL array ke list Python
+        skills = result['skills']
+        if skills is None:
             skills = []
+        elif isinstance(skills, str):
+            # Jika masih string, parse manual
+            skills = [s.strip('"') for s in skills.strip('{}').split(',')] if skills != '{}' else []
+        
         return {
             "id": result['id'],
             "name": result['name'],

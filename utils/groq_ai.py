@@ -1,5 +1,5 @@
 """
-Module untuk AI menggunakan Groq (Llama 3)
+Module untuk AI menggunakan Groq (Mixtral)
 """
 import json
 from groq import Groq
@@ -12,12 +12,6 @@ def get_groq_client():
 def extract_resume_data(resume_text: str) -> dict:
     """
     Ekstrak nama, email, skills dari resume menggunakan Groq
-    
-    Args:
-        resume_text: Teks resume yang sudah diekstrak dari PDF
-        
-    Returns:
-        Dictionary: {"name": "...", "email": "...", "skills": [...]}
     """
     client = get_groq_client()
     
@@ -29,20 +23,14 @@ def extract_resume_data(resume_text: str) -> dict:
     {resume_text[:4000]}
     
     OUTPUT FORMAT (JSON):
-    {{
-        "name": "Nama lengkap orang ini",
-        "email": "Alamat email yang terdeteksi",
-        "skills": ["skill1", "skill2", "skill3"]
-    }}
-    
-    Untuk skills: ambil semua skill teknis dan soft skill yang relevan.
+    {{"name": "Nama lengkap orang ini", "email": "Alamat email", "skills": ["skill1", "skill2"]}}
     """
     
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="mixtral-8x7b-32768",
             messages=[
-                {"role": "system", "content": "Kamu adalah HR AI profesional. Output hanya JSON valid."},
+                {"role": "system", "content": "Kamu adalah HR AI. Output hanya JSON valid."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1
@@ -57,14 +45,6 @@ def extract_resume_data(resume_text: str) -> dict:
 def calculate_match_score(resume_text: str, job_description: str, job_role: str) -> dict:
     """
     Hitung match score antara resume dan job description
-    
-    Args:
-        resume_text: Teks resume
-        job_description: Deskripsi pekerjaan
-        job_role: Nama role/posisi
-        
-    Returns:
-        Dictionary: {"score": 0-100, "feedback": "...", "strengths": [...], "weaknesses": [...], "tips": [...]}
     """
     client = get_groq_client()
     
@@ -79,27 +59,15 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
     JOB DESCRIPTION:
     {job_description[:3000]}
     
-    Berikan output dalam format JSON. Jangan tambahkan teks lain di luar JSON.
-    
-    {
-        "score": 85,
-        "feedback": "Paragraf singkat tentang hasil analisis",
-        "strengths": ["kelebihan 1", "kelebihan 2", "kelebihan 3"],
-        "weaknesses": ["kekurangan 1", "kekurangan 2"],
-        "tips": ["tips perbaikan 1", "tips perbaikan 2"]
-    }
-    
-    Hitung score berdasarkan:
-    - Kesesuaian skills (60%)
-    - Pengalaman relevan (30%)
-    - Kesesuaian role (10%)
+    Output hanya JSON:
+    {{"score": 85, "feedback": "feedback singkat", "strengths": ["a","b"], "weaknesses": ["c"], "tips": ["d","e"]}}
     """
     
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="mixtral-8x7b-32768",
             messages=[
-                {"role": "system", "content": "Kamu adalah HR AI. Output hanya JSON valid, tanpa teks lain."},
+                {"role": "system", "content": "Output hanya JSON valid."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2
@@ -120,27 +88,19 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
 def generate_interview_questions(job_description: str, job_role: str, company: str) -> list:
     """
     Generate kemungkinan pertanyaan interview berdasarkan job description
-    
-    Returns:
-        List berisi 5-7 pertanyaan
     """
     client = get_groq_client()
     
     prompt = f"""
-    Generate 5 pertanyaan interview yang paling mungkin muncul untuk posisi berikut:
+    Buat 5 pertanyaan interview untuk posisi {job_role} di {company}.
+    Job desc: {job_description[:2000]}
     
-    PERUSAHAAN: {company}
-    POSISI: {job_role}
-    
-    DESKRIPSI PEKERJAAN:
-    {job_description[:2500]}
-    
-    Output hanya list JSON, contoh: ["pertanyaan 1", "pertanyaan 2", ...]
+    Output hanya JSON array: ["q1", "q2", "q3", "q4", "q5"]
     """
     
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="mixtral-8x7b-32768",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
         )
@@ -152,7 +112,7 @@ def generate_interview_questions(job_description: str, job_role: str, company: s
         return [
             "Ceritakan tentang diri Anda",
             "Mengapa Anda tertarik dengan posisi ini?",
-            "Apa pengalaman terkuat Anda yang relevan?",
-            "Bagaimana Anda menghadapi tantangan dalam tim?",
+            "Apa pengalaman terkuat Anda?",
+            "Bagaimana Anda menghadapi tantangan?",
             "Apa ekspektasi gaji Anda?"
         ]

@@ -10,7 +10,9 @@ def get_groq_client():
     return Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 def extract_resume_data(resume_text: str) -> dict:
-    """Ekstrak nama, email, skills dari resume"""
+    """
+    Ekstrak nama, email, skills dari resume menggunakan Groq
+    """
     client = get_groq_client()
     
     prompt = f"""
@@ -21,14 +23,14 @@ def extract_resume_data(resume_text: str) -> dict:
     {resume_text[:4000]}
     
     OUTPUT FORMAT (JSON):
-    {{"name": "Nama lengkap", "email": "email@domain.com", "skills": ["skill1", "skill2"]}}
+    {{"name": "Nama lengkap orang ini", "email": "Alamat email", "skills": ["skill1", "skill2"]}}
     """
     
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Output hanya JSON valid."},
+                {"role": "system", "content": "Kamu adalah HR AI. Output hanya JSON valid."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1
@@ -41,18 +43,23 @@ def extract_resume_data(resume_text: str) -> dict:
         return {"error": str(e), "name": "", "email": "", "skills": []}
 
 def calculate_match_score(resume_text: str, job_description: str, job_role: str) -> dict:
-    """Hitung match score antara resume dan job description"""
+    """
+    Hitung match score antara resume dan job description
+    """
     client = get_groq_client()
     
     prompt = f"""
-    Analisis kecocokan CV dan deskripsi pekerjaan ini.
+    Analisis kecocokan antara CV dan deskripsi pekerjaan berikut.
     
     POSISI: {job_role}
     
-    CV: {resume_text[:2500]}
-    JOB: {job_description[:2500]}
+    CV TEXT:
+    {resume_text[:3000]}
     
-    Output JSON:
+    JOB DESCRIPTION:
+    {job_description[:3000]}
+    
+    Output hanya JSON:
     {{"score": 85, "feedback": "feedback singkat", "strengths": ["a","b"], "weaknesses": ["c"], "tips": ["d","e"]}}
     """
     
@@ -60,58 +67,57 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Output HANYA JSON. Jangan tambah teks."},
+                {"role": "system", "content": "Output hanya JSON valid."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
-            max_tokens=300
+            temperature=0.2
         )
         
-        raw = response.choices[0].message.content
-        # Bersihkan response
-        clean = raw.strip()
-        if clean.startswith('```json'):
-            clean = clean[7:]
-        if clean.startswith('```'):
-            clean = clean[3:]
-        if clean.endswith('```'):
-            clean = clean[:-3]
-        
-        result = json.loads(clean)
-        return {
-            "score": result.get("score", 50),
-            "feedback": result.get("feedback", ""),
-            "strengths": result.get("strengths", []),
-            "weaknesses": result.get("weaknesses", []),
-            "tips": result.get("tips", [])
-        }
+        result = json.loads(response.choices[0].message.content)
+        return result
     
     except Exception as e:
         return {
-            "score": 50,
-            "feedback": "Analisis selesai. CV Anda sudah terekam.",
-            "strengths": ["CV berhasil diupload"],
+            "score": 0,
+            "feedback": f"Error: {str(e)}",
+            "strengths": [],
             "weaknesses": [],
-            "tips": ["Simpan lamaran ini untuk tracking"]
+            "tips": ["Coba lagi nanti"]
         }
 
 def generate_interview_questions(job_description: str, job_role: str, company: str) -> list:
-    """Generate pertanyaan interview"""
+    """Generate pertanyaan interview spesifik berdasarkan job description"""
     client = get_groq_client()
     
     prompt = f"""
-    Buat 5 pertanyaan interview untuk posisi {job_role} di {company}.
-    Job desc: {job_description[:2000]}
+    Berdasarkan deskripsi pekerjaan ini, buatkan 5 pertanyaan interview yang SPESIFIK dan RELEVAN.
     
-    Output JSON array: ["q1", "q2", "q3", "q4", "q5"]
+    PERUSAHAAN: {company}
+    POSISI: {job_role}
+    
+    DESKRIPSI PEKERJAAN:
+    {job_description[:2000]}
+    
+    BUAT PERTANYAAN YANG:
+    1. Menguji skill teknis yang disebutkan di job desc
+    2. Menanyakan pengalaman relevan dengan posisi ini
+    3. Menggali pemahaman tentang tools/teknologi yang dibutuhkan
+    4. Berbasis situasi nyata (behavioral question)
+    5. Spesifik untuk industri/perusahaan ini
+    
+    Output HANYA JSON array, contoh:
+    ["Pertanyaan 1", "Pertanyaan 2", "Pertanyaan 3", "Pertanyaan 4", "Pertanyaan 5"]
     """
     
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=400
+            messages=[
+                {"role": "system", "content": "Kamu adalah HR AI. Output hanya JSON array. Jangan tambah teks lain."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5,  # Lebih tinggi agar lebih kreatif
+            max_tokens=500
         )
         
         raw = response.choices[0].message.content
@@ -124,13 +130,20 @@ def generate_interview_questions(job_description: str, job_role: str, company: s
             clean = clean[:-3]
         
         questions = json.loads(clean)
-        return questions if isinstance(questions, list) else []
+        return questions if isinstance(questions, list) and len(questions) >= 3 else [
+            f"Apa pengalaman Anda dengan tools yang disebutkan di job description {company}?",
+            f"Ceritakan proyek {job_role} paling menantang yang pernah Anda kerjakan.",
+            f"Bagaimana Anda menangani studi kasus [topik dari job desc]?",
+            f"Apa kontribusi terbesar yang bisa Anda berikan ke tim {company}?",
+            f"Bagaimana Anda tetap update dengan perkembangan terbaru di bidang ini?"
+        ]
     
-    except Exception:
+    except Exception as e:
+        # Fallback questions yang lebih spesifik
         return [
-            "Ceritakan tentang diri Anda",
-            "Mengapa Anda tertarik dengan posisi ini?",
-            "Apa pengalaman terkuat Anda?",
-            "Bagaimana Anda menghadapi tantangan?",
-            "Apa ekspektasi gaji Anda?"
+            f"Apa pengalaman Anda dengan Python, SQL, dan Machine Learning seperti yang dibutuhkan di {company}?",
+            f"Ceritakan proyek Data Scientist yang pernah Anda kerjakan dari awal hingga akhir.",
+            f"Bagaimana cara Anda menangani data yang tidak terstruktur atau kotor?",
+            f"Tools apa saja yang biasa Anda gunakan untuk visualisasi data?",
+            f"Bagaimana Anda menjelaskan hasil analisis kompleks ke tim non-teknis?"
         ]

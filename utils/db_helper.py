@@ -19,7 +19,11 @@ def init_db():
     conn = get_connection()
     cur = conn.cursor()
     
-    # Tabel resumes
+    # Hapus tabel lama jika ada (untuk reset)
+    cur.execute("DROP TABLE IF EXISTS resumes CASCADE")
+    cur.execute("DROP TABLE IF EXISTS jobs CASCADE")
+    
+    # Tabel resumes dengan skill sebagai TEXT (bukan array)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS resumes (
             id SERIAL PRIMARY KEY,
@@ -27,7 +31,7 @@ def init_db():
             extracted_text TEXT,
             name TEXT,
             email TEXT,
-            skills TEXT[],
+            skills TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -58,19 +62,14 @@ def save_resume(file_name, extracted_text, name, email, skills):
     conn = get_connection()
     cur = conn.cursor()
     
-    # Ubah skills dari list Python ke format array PostgreSQL
-    if skills and isinstance(skills, list):
-        # Escape quotes di dalam skill
-        escaped_skills = [s.replace('"', '\\"') for s in skills]
-        pg_array = '{' + ','.join([f'"{s}"' for s in escaped_skills]) + '}'
-    else:
-        pg_array = '{}'
+    # Simpan skills sebagai JSON string (bukan array PostgreSQL)
+    skills_json = json.dumps(skills) if skills else "[]"
     
     cur.execute("""
         INSERT INTO resumes (file_name, extracted_text, name, email, skills)
-        VALUES (%s, %s, %s, %s, %s::TEXT[])
+        VALUES (%s, %s, %s, %s, %s)
         RETURNING id
-    """, (file_name, extracted_text, name, email, pg_array))
+    """, (file_name, extracted_text, name, email, skills_json))
     
     resume_id = cur.fetchone()[0]
     conn.commit()
@@ -96,13 +95,11 @@ def get_latest_resume():
     conn.close()
     
     if result:
-        # Konversi dari PostgreSQL array ke list Python
-        skills = result['skills']
-        if skills is None:
+        # Parse skills dari JSON string
+        try:
+            skills = json.loads(result['skills']) if result['skills'] else []
+        except:
             skills = []
-        elif isinstance(skills, str):
-            # Jika masih string, parse manual
-            skills = [s.strip('"') for s in skills.strip('{}').split(',')] if skills != '{}' else []
         
         return {
             "id": result['id'],
@@ -186,14 +183,15 @@ def get_dashboard_stats():
     cur = conn.cursor()
     
     cur.execute("SELECT COUNT(*) FROM jobs")
-    total = cur.fetchone()[0]
+    total = cur.fetchone()[0] or 0
     
     cur.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status")
     status_rows = cur.fetchall()
     status_counts = {row[0]: row[1] for row in status_rows}
     
     cur.execute("SELECT AVG(match_score) FROM jobs WHERE match_score IS NOT NULL")
-    avg_score = cur.fetchone()[0] or 0
+    avg_row = cur.fetchone()
+    avg_score = avg_row[0] if avg_row and avg_row[0] else 0
     
     cur.close()
     conn.close()
@@ -204,7 +202,7 @@ def get_dashboard_stats():
         "avg_score": round(float(avg_score), 1)
     }
 
-# Inisialisasi database saat module di-load
+# Inisialisasi database
 try:
     init_db()
 except Exception as e:

@@ -1,36 +1,36 @@
 """
-Module untuk AI menggunakan Groq (Llama 3.1 8B Instant)
+Module for AI using Groq (Llama 3.1 8B Instant)
 """
 import json
 from groq import Groq
 import streamlit as st
 
 def get_groq_client():
-    """Mendapatkan client Groq dari secrets"""
+    """Get Groq client from secrets"""
     return Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 def extract_resume_data(resume_text: str) -> dict:
     """
-    Ekstrak nama, email, skills dari resume menggunakan Groq
+    Extract name, email, skills from resume using Groq
     """
     client = get_groq_client()
     
     prompt = f"""
-    Ekstrak informasi penting dari CV berikut. 
-    Berikan output hanya dalam format JSON, tanpa teks lain.
+    Extract important information from the following CV.
+    Output ONLY in JSON format, no other text.
     
     CV TEXT:
     {resume_text[:4000]}
     
     OUTPUT FORMAT (JSON):
-    {{"name": "Nama lengkap orang ini", "email": "Alamat email", "skills": ["skill1", "skill2"]}}
+    {{"name": "Full name of this person", "email": "Detected email address", "skills": ["skill1", "skill2"]}}
     """
     
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Kamu adalah HR AI. Output hanya JSON valid."},
+                {"role": "system", "content": "You are an HR AI. Output only valid JSON."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1
@@ -44,14 +44,14 @@ def extract_resume_data(resume_text: str) -> dict:
 
 def calculate_match_score(resume_text: str, job_description: str, job_role: str) -> dict:
     """
-    Hitung match score antara resume dan job description
+    Calculate match score between resume and job description
     """
     client = get_groq_client()
     
     prompt = f"""
-    Analisis kecocokan antara CV dan deskripsi pekerjaan berikut.
+    Analyze the match between the CV and job description below.
     
-    POSISI: {job_role}
+    POSITION: {job_role}
     
     CV TEXT:
     {resume_text[:3000]}
@@ -59,25 +59,26 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
     JOB DESCRIPTION:
     {job_description[:3000]}
     
-    Berikan output dalam format JSON. Jangan tambahkan teks lain di luar JSON.
+    Output ONLY in JSON format. Do not add any other text outside JSON.
     
-    Contoh output:
+    Example output:
     {{
         "score": 85,
-        "feedback": "CV Anda cukup cocok untuk posisi ini.",
-        "strengths": ["Pengalaman Python", "Skill SQL", "Proyek relevant"],
-        "weaknesses": ["Kurang pengalaman cloud", "Tidak ada sertifikasi"],
-        "tips": ["Tambahkan pengalaman AWS", "Buat portofolio online"]
+        "feedback": "Your CV is a good match for this position because...",
+        "strengths": ["Python experience", "SQL skills", "Relevant projects"],
+        "weaknesses": ["Missing cloud experience", "No certifications"],
+        "tips": ["Add AWS experience", "Create an online portfolio"]
     }}
     
-    Pastikan semua field (score, feedback, strengths, weaknesses, tips) ada.
+    Make sure all fields (score, feedback, strengths, weaknesses, tips) are included.
+    Calculate score from 0-100 based on skills and experience match.
     """
     
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Output HANYA JSON valid. Jangan tambah teks apapun."},
+                {"role": "system", "content": "Output ONLY valid JSON. Do not add any other text."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
@@ -87,7 +88,7 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
         raw_response = response.choices[0].message.content
         clean_response = raw_response.strip()
         
-        # Bersihkan dari backticks
+        # Clean from backticks
         if clean_response.startswith('```json'):
             clean_response = clean_response[7:]
         if clean_response.startswith('```'):
@@ -99,43 +100,50 @@ def calculate_match_score(resume_text: str, job_description: str, job_role: str)
         
         return {
             "score": result.get("score", 75),
-            "feedback": result.get("feedback", "Analisis selesai"),
-            "strengths": result.get("strengths", ["CV berhasil diupload"]),
+            "feedback": result.get("feedback", "Analysis complete"),
+            "strengths": result.get("strengths", ["CV successfully uploaded"]),
             "weaknesses": result.get("weaknesses", []),
-            "tips": result.get("tips", ["Simpan lamaran untuk tracking"])
+            "tips": result.get("tips", ["Track your applications regularly"])
         }
     
     except Exception as e:
         return {
             "score": 75,
-            "feedback": "Analisis selesai. CV Anda sudah terekam.",
-            "strengths": ["CV berhasil diproses", "Skills terdeteksi"],
+            "feedback": "Analysis complete. Your CV has been recorded.",
+            "strengths": ["CV successfully processed", "Skills detected"],
             "weaknesses": [],
-            "tips": ["Terus pantau status lamaran Anda", "Tambah lebih banyak pengalaman"]
+            "tips": ["Keep monitoring your application status"]
         }
 
 def generate_interview_questions(job_description: str, job_role: str, company: str) -> list:
-    """Generate pertanyaan interview spesifik berdasarkan job description"""
+    """Generate specific interview questions based on job description"""
     client = get_groq_client()
     
     prompt = f"""
-    Berdasarkan deskripsi pekerjaan ini, buatkan 5 pertanyaan interview yang SPESIFIK dan RELEVAN.
+    Based on this job description, create 5 SPECIFIC and RELEVANT interview questions.
     
-    PERUSAHAAN: {company}
-    POSISI: {job_role}
+    COMPANY: {company}
+    POSITION: {job_role}
     
-    DESKRIPSI PEKERJAAN:
+    JOB DESCRIPTION:
     {job_description[:2000]}
     
-    Output HANYA JSON array, contoh:
-    ["Pertanyaan 1", "Pertanyaan 2", "Pertanyaan 3", "Pertanyaan 4", "Pertanyaan 5"]
+    Output ONLY a JSON array, example:
+    ["Question 1", "Question 2", "Question 3", "Question 4", "Question 5"]
+    
+    Make questions that test:
+    1. Technical skills mentioned in the job description
+    2. Relevant experience for this position
+    3. Understanding of required tools/technologies
+    4. Real-world scenarios (behavioral questions)
+    5. Industry/company specific knowledge
     """
     
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Output hanya JSON array. Jangan tambah teks lain."},
+                {"role": "system", "content": "Output only JSON array. Do not add any other text."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5,
@@ -153,18 +161,18 @@ def generate_interview_questions(job_description: str, job_role: str, company: s
         
         questions = json.loads(clean)
         return questions if isinstance(questions, list) and len(questions) >= 3 else [
-            f"Apa pengalaman Anda dengan teknologi yang dibutuhkan di {company}?",
-            f"Ceritakan proyek {job_role} yang pernah Anda kerjakan.",
-            f"Bagaimana Anda menangani tantangan dalam tim?",
-            f"Apa kontribusi terbaik Anda di proyek sebelumnya?",
-            f"Bagaimana Anda tetap update dengan teknologi terbaru?"
+            f"What experience do you have with the technologies required for this position at {company}?",
+            f"Tell me about a {job_role} project you worked on from start to finish.",
+            f"How do you handle challenges when working in a team?",
+            f"What has been your biggest contribution in a previous project?",
+            f"How do you stay updated with the latest technologies in your field?"
         ]
     
     except Exception:
         return [
-            f"Apa pengalaman Anda dengan Python, SQL, dan Machine Learning di {company}?",
-            f"Ceritakan proyek Data Scientist dari awal hingga akhir.",
-            f"Bagaimana cara Anda menangani data yang tidak terstruktur?",
-            f"Tools apa yang biasa Anda gunakan untuk visualisasi data?",
-            f"Bagaimana Anda menjelaskan hasil analisis ke tim non-teknis?"
+            f"What experience do you have with Python, SQL, and Machine Learning as required by {company}?",
+            f"Tell me about a Data Scientist project you worked on from start to finish.",
+            f"How do you handle unstructured or messy data?",
+            f"What tools do you use for data visualization?",
+            f"How do you explain complex analysis results to non-technical stakeholders?"
         ]

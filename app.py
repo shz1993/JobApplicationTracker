@@ -43,15 +43,12 @@ with st.sidebar:
     
     if uploaded_file and not st.session_state.resume_processed:
         with st.spinner("Membaca PDF..."):
-            # Ekstrak teks dari PDF
             resume_text = extract_text_from_pdf(uploaded_file)
             
-            # Ekstrak data dengan Groq AI
             with st.spinner("AI sedang menganalisis CV..."):
                 extracted = extract_resume_data(resume_text)
             
             if "error" not in extracted:
-                # Simpan ke database
                 resume_id = save_resume(
                     file_name=uploaded_file.name,
                     extracted_text=resume_text,
@@ -73,7 +70,6 @@ with st.sidebar:
             else:
                 st.error(f"Error: {extracted.get('error')}")
     
-    # Tampilkan data CV jika sudah diproses
     if st.session_state.resume_data:
         st.markdown("---")
         st.subheader("👤 Data CV")
@@ -95,7 +91,6 @@ with st.sidebar:
     st.caption("Made with ❤️ using Streamlit + Groq AI")
 
 # ==================== MAIN CONTENT ====================
-# Tab navigation
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Dashboard", 
     "💼 Log Lamaran", 
@@ -107,13 +102,11 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     st.header("📊 Dashboard Statistik")
     
-    # Cek apakah ada resume
     if not st.session_state.resume_data:
         st.warning("⚠️ Silakan upload CV terlebih dahulu di sidebar kiri!")
     else:
         stats = get_dashboard_stats()
         
-        # Metric cards
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total Lamaran", stats['total'])
@@ -128,7 +121,6 @@ with tab1:
         
         st.markdown("---")
         
-        # Chart status distribution
         col1, col2 = st.columns(2)
         
         with col1:
@@ -195,14 +187,12 @@ with tab2:
                     st.error("Mohon isi semua field yang wajib (*)")
                 else:
                     with st.spinner("AI sedang menganalisis kecocokan..."):
-                        # Hitung match score dengan Groq
                         match_result = calculate_match_score(
                             resume_text=st.session_state.resume_data['text'],
                             job_description=job_description,
                             job_role=role
                         )
                     
-                    # Simpan ke database
                     job_id = save_job(
                         company=company,
                         role=role,
@@ -217,7 +207,6 @@ with tab2:
                     st.success(f"✅ Lamaran ke **{company}** berhasil disimpan!")
                     st.info(f"🎯 AI Match Score: **{match_result.get('score', 0)}%**")
                     
-                    # Tampilkan feedback singkat
                     with st.expander("Lihat Analisis AI"):
                         st.write(match_result.get('feedback', ''))
                         if match_result.get('strengths'):
@@ -229,14 +218,13 @@ with tab2:
                             for t in match_result['tips']:
                                 st.write(f"→ {t}")
 
-# ==================== TAB 3: AI MATCH & INTERVIEW PREP ====================
+# ==================== TAB 3: AI MATCH & INTERVIEW PREP (DIPERBAIKI) ====================
 with tab3:
     st.header("🎯 AI Match Analysis & Interview Preparation")
     
     if not st.session_state.resume_data:
         st.warning("⚠️ Silakan upload CV terlebih dahulu!")
     else:
-        # Pilih job yang sudah ada
         jobs = get_all_jobs()
         
         if not jobs:
@@ -264,7 +252,6 @@ with tab3:
                 with col2:
                     st.subheader("💡 Tips Perbaikan CV")
                     
-                    # Hitung ulang match untuk dapat tips
                     if st.button("🔄 Refresh Analisis & Tips", use_container_width=True):
                         with st.spinner("AI sedang menganalisis ulang..."):
                             new_match = calculate_match_score(
@@ -272,17 +259,29 @@ with tab3:
                                 job_description=job_detail['job_description'],
                                 job_role=job_detail['role']
                             )
-                        if new_match.get('tips'):
-                            for tip in new_match['tips']:
-                                st.write(f"✓ {tip}")
-                        if new_match.get('weaknesses'):
-                            st.write("\n**Area yang perlu ditingkatkan:**")
-                            for w in new_match['weaknesses']:
-                                st.write(f"⚠️ {w}")
+                        
+                        if new_match:
+                            if new_match.get('tips'):
+                                st.markdown("**💡 Tips Perbaikan CV:**")
+                                for tip in new_match['tips']:
+                                    st.markdown(f"✓ {tip}")
+                            
+                            if new_match.get('strengths'):
+                                st.markdown("---")
+                                st.markdown("**✅ Kelebihan CV Anda:**")
+                                for s in new_match['strengths']:
+                                    st.markdown(f"• {s}")
+                            
+                            if new_match.get('weaknesses'):
+                                st.markdown("---")
+                                st.markdown("**⚠️ Area yang Perlu Ditingkatkan:**")
+                                for w in new_match['weaknesses']:
+                                    st.markdown(f"• {w}")
+                        else:
+                            st.warning("Tidak dapat menganalisis. Coba lagi.")
                     else:
-                        st.write("Klik tombol di atas untuk mendapatkan tips dari AI")
+                        st.info("👆 Klik tombol di atas untuk mendapatkan tips perbaikan CV dari AI")
                 
-                # Interview preparation section
                 st.markdown("---")
                 st.subheader("🎤 Interview Preparation")
                 
@@ -311,14 +310,10 @@ with tab4:
     if not jobs:
         st.info("Belum ada lamaran yang disimpan. Mulai tambahkan lamaran di tab 'Log Lamaran'!")
     else:
-        # Tampilkan dalam tabel
         df = pd.DataFrame(jobs)
         df['applied_date'] = pd.to_datetime(df['applied_date']).dt.date
-        
-        # Rename columns
         df.columns = ['ID', 'Perusahaan', 'Posisi', 'Status', 'Match Score', 'Tanggal Lamar', 'Deadline']
         
-        # Format status
         status_map = {
             'applied': '📤 Applied',
             'interview': '📞 Interview',
@@ -328,10 +323,8 @@ with tab4:
         }
         df['Status'] = df['Status'].map(status_map).fillna(df['Status'])
         
-        # Tampilkan dataframe
         st.dataframe(df, use_container_width=True, hide_index=True)
         
-        # Edit status
         st.markdown("---")
         st.subheader("✏️ Update Status Lamaran")
         
@@ -360,7 +353,6 @@ with tab4:
             st.success("Status berhasil diupdate!")
             st.rerun()
         
-        # Export option
         st.markdown("---")
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
